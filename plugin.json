@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json.schemastore.org/claude-code-plugin.json",
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "valuethen",
   "version": "1.0.0",
   "description": "Convert money across years and currencies using official inflation data from the World Bank, ECB and FRED.",
@@ -7,10 +7,5 @@
   "homepage": "https://valuethen.com/developers/",
   "repository": "https://github.com/Rising-Throne/valuethen-cli",
   "license": "MIT",
-  "keywords": ["inflation", "currency", "finance", "purchasing-power", "cpi"],
-  "skills": ["./.claude/skills/valuethen/SKILL.md"],
-  "mcpServers": {
-    "valuethen": { "type": "http", "url": "https://api.valuethen.com/mcp" },
-    "valuethen-docs": { "type": "http", "url": "https://valuethen.com/mcp" }
-  }
+  "keywords": ["inflation", "currency", "finance", "purchasing-power", "cpi", "exchange-rate"]
 }

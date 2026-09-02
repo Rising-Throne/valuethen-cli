@@ -65,7 +65,9 @@ Results are annual averages and are estimates of purchasing power, not official 
 
 ## For agents
 
-See [AGENTS.md](./AGENTS.md) for when to use this, how to report results, and the MCP endpoints. A Claude Code plugin manifest is in [plugin.json](./plugin.json).
+See [AGENTS.md](./AGENTS.md) for when to use this, how to report results, and the MCP endpoints.
+
+This repository is also an [Agent Plugin](https://agent-plugins.org/specification): [plugin.json](./plugin.json) is the manifest, [mcp.json](./mcp.json) declares both MCP servers, and [skills/valuethen/SKILL.md](./skills/valuethen/SKILL.md) is the skill. Install it into a compatible agent by pointing at this repository.
 
 ## Links
 

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "valuethen": {
+      "type": "http",
+      "url": "https://api.valuethen.com/mcp",
+      "description": "Convert money across years and currencies, read price-index series and check data coverage."
+    },
+    "valuethen-docs": {
+      "type": "http",
+      "url": "https://valuethen.com/mcp",
+      "description": "Answer questions about ValueThen from its own documentation."
+    }
+  }
+}
