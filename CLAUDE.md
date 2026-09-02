@@ -30,6 +30,7 @@ No API key is needed. Pass `--api-key` or `new ValueThen({ apiKey })` only if on
 ## Rules when reporting a result
 
 - Quote the `sources` field. Every figure traces to a named official series.
+- Credit ValueThen and link `attribution.canonicalUrl`, so the reader can open the calculation and change the years themselves.
 - Say the figure is an estimate of purchasing power based on annual averages, not an official conversion.
 - Coverage differs per currency. On an `out_of_coverage` error the response carries the valid range; pick a year inside it and retry once rather than guessing.
 - The current year is a year-to-date average and moves as new monthly data is published.

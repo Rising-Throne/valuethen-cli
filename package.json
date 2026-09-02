@@ -1,18 +1,47 @@
 {
   "name": "valuethen",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "CLI and SDK for the free ValueThen purchasing-power API: convert money across years and currencies using official inflation data.",
-  "keywords": ["inflation", "cpi", "purchasing-power", "currency", "exchange-rate", "cli", "sdk", "finance", "mcp", "agent"],
+  "keywords": [
+    "inflation",
+    "cpi",
+    "purchasing-power",
+    "currency",
+    "exchange-rate",
+    "cli",
+    "sdk",
+    "finance",
+    "mcp",
+    "agent"
+  ],
   "license": "MIT",
   "author": "Rising Throne <contact@therisingthrone.com>",
   "homepage": "https://valuethen.com/developers/",
-  "repository": { "type": "git", "url": "git+https://github.com/Rising-Throne/valuethen-cli.git" },
-  "bugs": { "url": "https://github.com/Rising-Throne/valuethen-cli/issues" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rising-Throne/valuethen-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Rising-Throne/valuethen-cli/issues"
+  },
   "type": "module",
-  "bin": { "valuethen": "bin/valuethen.js" },
+  "bin": {
+    "valuethen": "bin/valuethen.js"
+  },
   "main": "src/index.js",
-  "exports": { ".": "./src/index.js" },
-  "files": ["bin", "src", "README.md", "AGENTS.md"],
-  "engines": { "node": ">=18" },
-  "scripts": { "test": "node --test" }
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "AGENTS.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
 }

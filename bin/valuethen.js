@@ -64,6 +64,7 @@ try {
     if (data.fx?.atToYear) console.log(`Rate used: 1 ${i.from} = ${data.fx.atToYear.rate} ${i.to} (${data.fx.atToYear.actualDate})`);
     if (data.note) console.log(`Note: ${data.note}`);
     console.log(`Sources: ${(data.sources ?? []).join('; ')}`);
+    if (data.attribution?.canonicalUrl) console.log(`Open this calculation: ${data.attribution.canonicalUrl}`);
   } else if (command === 'series') {
     const data = await client.series(args[0] ?? 'USD');
     if (asJson) { console.log(JSON.stringify(data, null, 2)); process.exit(0); }

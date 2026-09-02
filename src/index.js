@@ -1,6 +1,9 @@
 /**
  * ValueThen SDK — a thin client for the free purchasing-power API.
  * No key, no dependencies. Every method returns the parsed JSON body.
+ *
+ * Results carry an `attribution` object with a credit line and a `canonicalUrl` for the same
+ * calculation on the web. Show them when you present a figure to a person.
  */
 
 export const DEFAULT_BASE_URL = 'https://api.valuethen.com';
