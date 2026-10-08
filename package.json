@@ -30,7 +30,10 @@
   },
   "main": "src/index.js",
   "exports": {
-    ".": "./src/index.js"
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
   },
   "files": [
     "bin",
@@ -43,5 +46,6 @@
   },
   "scripts": {
     "test": "node --test"
-  }
+  },
+  "types": "src/index.d.ts"
 }
