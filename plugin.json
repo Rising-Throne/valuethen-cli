@@ -1,11 +1,22 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "valuethen",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Convert money across years and currencies using official inflation data from the World Bank, ECB and FRED.",
-  "author": { "name": "Rising Throne", "email": "contact@therisingthrone.com", "url": "https://valuethen.com" },
+  "author": {
+    "name": "Rising Throne",
+    "email": "contact@therisingthrone.com",
+    "url": "https://valuethen.com"
+  },
   "homepage": "https://valuethen.com/developers/",
   "repository": "https://github.com/Rising-Throne/valuethen-cli",
   "license": "MIT",
-  "keywords": ["inflation", "currency", "finance", "purchasing-power", "cpi", "exchange-rate"]
+  "keywords": [
+    "inflation",
+    "currency",
+    "finance",
+    "purchasing-power",
+    "cpi",
+    "exchange-rate"
+  ]
 }

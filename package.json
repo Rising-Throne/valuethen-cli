@@ -1,6 +1,6 @@
 {
   "name": "valuethen",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "CLI and SDK for the free ValueThen purchasing-power API: convert money across years and currencies using official inflation data.",
   "keywords": [
     "inflation",
@@ -12,7 +12,9 @@
     "sdk",
     "finance",
     "mcp",
-    "agent"
+    "agent",
+    "typescript",
+    "inflation-calculator"
   ],
   "license": "MIT",
   "author": "Rising Throne <contact@therisingthrone.com>",
@@ -39,7 +41,8 @@
     "bin",
     "src",
     "README.md",
-    "AGENTS.md"
+    "AGENTS.md",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=18.3"

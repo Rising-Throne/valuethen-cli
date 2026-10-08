@@ -13,3 +13,12 @@ test('the skill is identical in skills/ and .claude/skills/', () => {
 test('CLAUDE.md imports AGENTS.md instead of copying it', () => {
   assert.equal(read('CLAUDE.md').trim(), '@AGENTS.md');
 });
+
+test('one version everywhere', async () => {
+  const pkg = JSON.parse(read('package.json'));
+  const plugin = JSON.parse(read('plugin.json'));
+  const { VERSION } = await import('../src/index.js');
+  assert.equal(VERSION, pkg.version, 'src/index.js VERSION');
+  assert.equal(plugin.version, pkg.version, 'plugin.json version');
+  assert.match(read('CHANGELOG.md'), new RegExp(`^## ${pkg.version.replace(/\./g, '\\.')}\\b`, 'm'), 'CHANGELOG entry');
+});
