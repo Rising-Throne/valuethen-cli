@@ -25,7 +25,9 @@ const client = new ValueThen();
 const { result, sources } = await client.convert({ amount: 100, from: 'USD', fromYear: 1970 });
 ```
 
-No API key is needed. Pass `--api-key` or `new ValueThen({ apiKey })` only if one was issued for higher rate limits.
+No API key is needed. Pass `--api-key` (or set `VALUETHEN_API_KEY`) or `new ValueThen({ apiKey })` only if one was issued for higher rate limits.
+
+CLI options can go anywhere in the command. Exit code 2 means the command was not valid and nothing was sent; 1 means the request failed, with the API's error code printed.
 
 ## Rules when reporting a result
 
@@ -37,7 +39,7 @@ No API key is needed. Pass `--api-key` or `new ValueThen({ apiKey })` only if on
 
 ## Error handling
 
-Errors are RFC 9457 problem details. `ValueThenError` exposes `code`, `status`, `problem` and `coverage`. Handle `out_of_coverage` by retrying inside the returned range, and `rate_limited` by waiting for the `Retry-After` seconds.
+Errors are RFC 9457 problem details. `ValueThenError` exposes `code`, `status`, `problem`, `coverage` and `retryAfter`. Handle `out_of_coverage` by retrying inside the returned range, and `rate_limited` by waiting `retryAfter` seconds; `new ValueThen({ retries: 2 })` does that waiting for you. Requests give up after 30 seconds with code `timeout`.
 
 ## Other surfaces
 
