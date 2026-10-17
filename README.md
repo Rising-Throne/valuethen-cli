@@ -32,13 +32,16 @@ Requires Node.js 18.3 or newer. The SDK uses only standard web APIs (`fetch`, `U
 ```text
 valuethen convert <amount> <from> <fromYear> [to] [toYear]   Convert across years and currencies
 valuethen inflate <amount> <currency> <fromYear> [toYear]    Same-currency inflation adjustment
-valuethen series <currency>                                  Full annual price index series
+valuethen series <currency>                                  Full price index series
+valuethen metals <XAU|XAG> [year]                            Gold or silver price per troy ounce
 valuethen coverage                                           Every currency and its data range
 ```
 
 | Option | What it does |
 | --- | --- |
 | `--json` | Print the raw API response |
+| `--method NAME` | `convert` only: `cpi-then-fx` (default), `fx-then-cpi` or `cpi` |
+| `--monthly` | `series` only: the monthly index instead of the annual one |
 | `--api-key KEY` | Send an API key for higher rate limits. `VALUETHEN_API_KEY` works too |
 | `--base URL` | Point at another API deployment |
 | `--timeout SECS` | Give up after this many seconds (default 30) |
@@ -47,8 +50,14 @@ valuethen coverage                                           Every currency and 
 
 Options can go anywhere in the command. `to` defaults to the starting currency, and `toYear` to the latest year both currencies cover.
 
+A year can carry a month, written `YYYY-MM`, to use monthly price indices. Give a month for both years or for neither. Where a currency has no monthly index, the API uses annual averages and says so in a note.
+
 ```bash
 valuethen convert 100 USD 1970 EUR 2024        # cross-currency
+valuethen convert 100 USD 1990-03 USD 2025-06  # month to month
+valuethen convert 100 USD 2000 EUR --method cpi # compare price changes, no exchange
+valuethen convert 1 XAU 1900 USD               # an ounce of gold from 1900, in today's dollars
+valuethen metals XAU 1900                      # the observed gold price that year
 valuethen inflate 1000 TRY 1990 --json | jq .result
 valuethen --json series GBP > gbp.json
 ```
@@ -84,14 +93,16 @@ Retries wait for the API's `Retry-After` (up to 60 seconds), or back off from ha
 
 | Method | Endpoint | Returns |
 | --- | --- | --- |
-| `convert({ amount, from, fromYear, to?, toYear?, method? })` | `GET /v1/convert` | The converted amount with `inputs`, `inflation`, `fx`, `sources` and `attribution`. `method` is `cpi-then-fx` (default), `fx-then-cpi` or `ppp` |
-| `inflate({ amount, currency, fromYear, toYear? })` | `GET /v1/inflate` | A same-currency adjustment |
-| `series(currency)` | `GET /v1/series/:currency` | The full annual price index: `years` and `values` |
-| `coverage()` | `GET /v1/coverage` | Every currency with its first and last year |
+| `convert({ amount, from, fromYear, to?, toYear?, fromMonth?, toMonth?, method? })` | `GET /v1/convert` | The converted amount with `inputs`, `inflation`, `fx`, `sources` and `attribution`. `method` is `cpi-then-fx` (default), `fx-then-cpi` or `cpi`. `XAU` and `XAG` work as currencies |
+| `inflate({ amount, currency, fromYear, toYear?, fromMonth?, toMonth? })` | `GET /v1/inflate` | A same-currency adjustment |
+| `series(currency, { freq? })` | `GET /v1/series/:currency` | The full price index: `years` and `values`, or `periods` and `values` with `freq: 'monthly'` |
+| `metals(metal, { year? })` | `GET /v1/metals/:metal` | Observed gold (`XAU`) or silver (`XAG`) prices per troy ounce: every `record`, or the `quote` for `year` |
+| `coverage()` | `GET /v1/coverage` | Every currency with its first and last year, and month where it has monthly data |
 | `currencies({ limit?, cursor? })` | `GET /v1/currencies` | One page; pass `pagination.nextCursor` as `cursor` for the next |
-| `convertBatch(requests, { idempotencyKey? })` | `POST /v1/convert/batch` | Up to 100 conversions in one call |
-| `createSeriesExport(currencies, { idempotencyKey? })` | `POST /v1/jobs/series-export` | Starts an export of full series for up to 40 currencies |
-| `job(id)` | `GET /v1/jobs/:id` | The state of an export started above |
+| `convertBatch(requests, { idempotencyKey? })` | `POST /v1/convert/batch` | Up to 100 conversions in one call; each succeeds or fails on its own |
+| `sandboxConvert({ amount?, from?, to?, fromYear?, toYear? })` | `GET /v1/sandbox/convert` | Fixed sample data in production shapes. Unmetered: use it while building and in tests |
+
+`createSeriesExport()` and `job()` are deprecated: the API no longer has those routes. Call `series()` for each currency instead. Both will be removed in 2.0.
 
 ```js
 // Up to 100 conversions in one call; the key makes a retry safe.
@@ -140,9 +151,9 @@ const result: ConversionResult = await new ValueThen().convert({ from: 'USD', fr
 
 ## Data and limits
 
-Consumer price indices from the World Bank (`FP.CPI.TOTL`), the European Central Bank HICP for the euro area, and FRED CPI-U for recent United States years. Exchange rates are ECB reference rates from 1999, extended earlier by a commercial provider. Coverage differs per currency; `coverage()` reports each currency's range.
+Consumer price indices from the World Bank (`FP.CPI.TOTL`), the European Central Bank HICP for the euro area, FRED CPI-U for recent United States years, and OECD monthly indices. Exchange rates are ECB reference rates from 1999, extended earlier by a commercial provider. Gold and silver prices are dated observations (MeasuringWorth, World Bank, Yahoo Finance via freegoldapi.com), not a live spot feed. Coverage differs per currency; `coverage()` reports each currency's range.
 
-Results are annual averages and are estimates of purchasing power, not official conversions. Anonymous callers get 15 requests per 10 seconds; every response carries IETF `RateLimit` headers and a 429 carries `Retry-After`.
+Results are estimates of purchasing power from annual (or, where asked and available, monthly) averages, not official conversions. Anonymous callers are rate limited per address; every response carries IETF `RateLimit` headers with the current limit, and a 429 carries `Retry-After`.
 
 When you show a figure to a person, quote its `sources` and link `attribution.canonicalUrl`, so they can open the same calculation and change the years.
 
@@ -163,8 +174,11 @@ This repository is also an [Agent Plugin](https://agent-plugins.org/specificatio
 ## Development
 
 ```bash
-npm test    # offline tests; no dependencies to install
+npm test               # offline tests; no dependencies to install
+npm run test:contract  # checks the SDK against the live OpenAPI description (needs network)
 ```
+
+Releases: bump the version in `package.json`, `plugin.json` and `src/index.js`, add a `CHANGELOG.md` entry (`npm test` checks all four agree), merge, then push a `vX.Y.Z` tag. The release workflow publishes to npm with provenance.
 
 Security issues: please email contact@therisingthrone.com rather than opening an issue (see [SECURITY.md](SECURITY.md)).
 

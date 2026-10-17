@@ -6,7 +6,7 @@
  * calculation on the web. Show them when you present a figure to a person.
  */
 
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 export const DEFAULT_BASE_URL = 'https://api.valuethen.com';
 /** Requests that get no response within this many milliseconds fail with code `timeout`. */
 export const DEFAULT_TIMEOUT_MS = 30_000;
