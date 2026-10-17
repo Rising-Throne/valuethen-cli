@@ -41,6 +41,41 @@ test('cross-currency output names the rate and any note', async () => {
   assert.match(out, /Note: Annual averages\./);
 });
 
+test('months go to the API and into the output', async () => {
+  const data = {
+    ...CONVERSION,
+    inputs: { ...CONVERSION.inputs, fromYear: 1990, fromMonth: 3, toYear: 2025, toMonth: 6 },
+    result: 250.63,
+    inflation: { cumulative: 1.5063 },
+    frequency: 'monthly',
+  };
+  const { fetch, calls } = scriptedFetch(json(data));
+  const { code, out } = await cli(['convert', '100', 'USD', '1990-03', 'USD', '2025-6'], { fetch });
+  assert.equal(code, 0);
+  assert.equal(calls[0].url.search, '?amount=100&from=USD&to=USD&fromYear=1990&toYear=2025&fromMonth=3&toMonth=6');
+  assert.match(out, /^\$100\.00 in 1990-03 {2}= {2}\$250\.63 in 2025-06\n/);
+
+  const inflate = scriptedFetch(json(data));
+  await cli(['inflate', '100', 'USD', '1990-03', '2025-06'], { fetch: inflate.fetch });
+  assert.equal(inflate.calls[0].url.search, '?amount=100&currency=USD&fromYear=1990&toYear=2025&fromMonth=3&toMonth=6');
+});
+
+test('--method cpi across currencies keeps the starting currency and shows both changes', async () => {
+  const data = {
+    ...CONVERSION,
+    inputs: { ...CONVERSION.inputs, to: 'EUR', fromYear: 2000, toYear: 2025 },
+    method: 'cpi',
+    result: 186.96,
+    inflation: { USD: { cumulative: 0.8696 }, EUR: { cumulative: 0.693 } },
+    fx: null,
+  };
+  const { fetch, calls } = scriptedFetch(json(data));
+  const { code, out } = await cli(['convert', '100', 'USD', '2000', 'EUR', '2025', '--method', 'cpi'], { fetch });
+  assert.equal(code, 0);
+  assert.match(calls[0].url.search, /&method=cpi$/);
+  assert.match(out, /^\$100\.00 in 2000 {2}= {2}\$186\.96 in 2025\nPrice change: USD \+87\.0%, EUR \+69\.3%\n/);
+});
+
 test('options work before, between and after the arguments', async () => {
   for (const argv of [
     ['--json', 'convert', '100', 'USD', '1970'],
@@ -75,8 +110,51 @@ test('inflate, series and coverage', async () => {
   const series = { currency: 'GBP', source: 'World Bank', years: [2023, 2024], values: [130.1, 133.2] };
   assert.equal((await cli(['series', 'gbp'], { fetch: scriptedFetch(json(series)).fetch })).out, 'GBP — World Bank\n2023\t130.1\n2024\t133.2\n');
 
-  const coverage = { currencies: [{ currency: 'USD', name: 'US dollar', cpiFrom: 1913, cpiTo: 2026 }, { currency: 'XYZ', name: 'Test' }] };
-  assert.equal((await cli(['coverage'], { fetch: scriptedFetch(json(coverage)).fetch })).out, 'USD\t1913–2026\tUS dollar\nXYZ\t?–?\tTest\n');
+  const coverage = {
+    currencies: [
+      { currency: 'USD', name: 'US dollar', cpiFrom: 1913, cpiTo: 2026, monthlyFrom: '1955-01', monthlyTo: '2026-09' },
+      { currency: 'XYZ', name: 'Test', cpiFrom: null, monthlyFrom: null },
+    ],
+  };
+  assert.equal(
+    (await cli(['coverage'], { fetch: scriptedFetch(json(coverage)).fetch })).out,
+    'USD\t1913–2026\tUS dollar\tmonthly 1955-01–2026-09\nXYZ\t?–?\tTest\n',
+  );
+});
+
+test('series --monthly', async () => {
+  const monthly = { currency: 'USD', source: 'OECD', years: [], periods: ['2026-08', '2026-09'], values: [330.1, 331.0] };
+  const { fetch, calls } = scriptedFetch(json(monthly));
+  const { code, out } = await cli(['series', 'usd', '--monthly'], { fetch });
+  assert.equal(code, 0);
+  assert.equal(calls[0].url.search, '?freq=monthly');
+  assert.equal(out, 'USD — OECD\n2026-08\t330.1\n2026-09\t331\n');
+
+  const none = { currency: 'AED', source: 'OECD', years: [], periods: [], values: [] };
+  const empty = await cli(['series', 'AED', '--monthly'], { fetch: scriptedFetch(json(none)).fetch });
+  assert.equal(empty.code, 1);
+  assert.match(empty.err, /AED has no monthly price index/);
+});
+
+test('metals: one year, or every record', async () => {
+  const quote = {
+    metal: 'XAU',
+    source: 'freegoldapi.com',
+    note: 'Not a live spot price.',
+    quote: { price: 20.655, currency: 'USD', date: '1900-01-01', source: 'measuringworth_london' },
+  };
+  const one = scriptedFetch(json(quote));
+  const a = await cli(['metals', 'xau', '1900'], { fetch: one.fetch });
+  assert.equal(a.code, 0);
+  assert.equal(one.calls[0].url.pathname + one.calls[0].url.search, '/v1/metals/XAU?year=1900');
+  assert.equal(
+    a.out,
+    '1 troy ounce of XAU in 1900  =  $20.66 (observed 1900-01-01)\nNote: Not a live spot price.\nSource: measuringworth_london\n',
+  );
+
+  const records = { metal: 'XAG', source: 'freegoldapi.com', records: [{ date: '1688-01-01', price: 0.27, currency: 'GBP' }] };
+  const b = await cli(['metals', 'XAG'], { fetch: scriptedFetch(json(records)).fetch });
+  assert.equal(b.out, 'XAG — freegoldapi.com\n1688-01-01\t0.27\tGBP\n');
 });
 
 test('invalid commands exit 2 without calling the API', async () => {
@@ -92,6 +170,16 @@ test('invalid commands exit 2 without calling the API', async () => {
     [['frobnicate'], /Unknown command: frobnicate/],
     [['coverage', '--nope'], /Unknown option: --nope/],
     [['coverage', '--timeout', '0'], /--timeout must be a positive number/],
+    [['convert', '100', 'USD', '1990-03'], /Give a month for both years/],
+    [['convert', '100', 'USD', '1990', 'USD', '2025-06'], /Give a month for both years/],
+    [['inflate', '100', 'USD', '1990-03', '2025'], /Give a month for both years/],
+    [['convert', '100', 'USD', '1990-13', 'USD', '2025-06'], /From year must be a year such as 1970 or a month/],
+    [['convert', '100', 'USD', '1990', '--method', 'ppp'], /--method must be one of cpi-then-fx, fx-then-cpi, cpi/],
+    [['inflate', '100', 'USD', '1990', '--method', 'cpi'], /--method only applies to convert/],
+    [['coverage', '--monthly'], /--monthly only applies to series/],
+    [['metals'], /Usage: valuethen metals/],
+    [['metals', 'XPT'], /Metal must be XAU \(gold\) or XAG \(silver\)/],
+    [['metals', 'XAU', '1900-01'], /Year must be a year/],
   ];
   for (const [argv, message] of cases) {
     const { fetch, calls } = scriptedFetch(json(CONVERSION));

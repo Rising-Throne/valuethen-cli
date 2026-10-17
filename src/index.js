@@ -133,19 +133,38 @@ export class ValueThen {
     }
   }
 
-  /** What `amount` of `from` in `fromYear` is worth in `toYear`, optionally in another currency. */
-  convert({ amount = 1, from, to, fromYear, toYear, method } = {}) {
-    return this.#request('GET', '/v1/convert', { query: { amount, from, to, fromYear, toYear, method } });
+  /**
+   * What `amount` of `from` in `fromYear` is worth in `toYear`, optionally in another currency.
+   * Pass `fromMonth` and `toMonth` together to use monthly price indices where they exist.
+   */
+  convert({ amount = 1, from, to, fromYear, toYear, fromMonth, toMonth, method } = {}) {
+    return this.#request('GET', '/v1/convert', {
+      query: { amount, from, to, fromYear, toYear, fromMonth, toMonth, method },
+    });
   }
 
   /** Same-currency inflation adjustment. */
-  inflate({ amount = 1, currency, fromYear, toYear } = {}) {
-    return this.#request('GET', '/v1/inflate', { query: { amount, currency, fromYear, toYear } });
+  inflate({ amount = 1, currency, fromYear, toYear, fromMonth, toMonth } = {}) {
+    return this.#request('GET', '/v1/inflate', { query: { amount, currency, fromYear, toYear, fromMonth, toMonth } });
   }
 
-  /** The full annual consumer price index series for one currency. */
-  series(currency) {
-    return this.#request('GET', `/v1/series/${encodeURIComponent(String(currency).toUpperCase())}`);
+  /** The full consumer price index series for one currency: annual, or `freq: 'monthly'`. */
+  series(currency, { freq } = {}) {
+    return this.#request('GET', `/v1/series/${encodeURIComponent(String(currency).toUpperCase())}`, {
+      query: { freq },
+    });
+  }
+
+  /** Observed gold (`XAU`) or silver (`XAG`) prices per troy ounce: every record, or the one for `year`. */
+  metals(metal, { year } = {}) {
+    return this.#request('GET', `/v1/metals/${encodeURIComponent(String(metal).toUpperCase())}`, {
+      query: { year },
+    });
+  }
+
+  /** A conversion answered from fixed sample data in production shapes: unmetered, for building and testing. */
+  sandboxConvert({ amount, from, to, fromYear, toYear } = {}) {
+    return this.#request('GET', '/v1/sandbox/convert', { query: { amount, from, to, fromYear, toYear } });
   }
 
   /** Every supported currency with its first and last year of data. */
@@ -163,12 +182,18 @@ export class ValueThen {
     return this.#request('POST', '/v1/convert/batch', { body: { requests }, idempotencyKey });
   }
 
-  /** Start an async export of full series for up to 40 currencies. */
+  /**
+   * Start an async export of full series for up to 40 currencies.
+   * @deprecated The API no longer offers series exports and answers 404. Call `series()` per currency. Removed in 2.0.
+   */
   createSeriesExport(currencies, { idempotencyKey } = {}) {
     return this.#request('POST', '/v1/jobs/series-export', { body: { currencies }, idempotencyKey });
   }
 
-  /** Poll a job created by an async endpoint. */
+  /**
+   * Poll a job created by an async endpoint.
+   * @deprecated The API no longer offers jobs and answers 404. Removed in 2.0.
+   */
   job(id) {
     return this.#request('GET', `/v1/jobs/${encodeURIComponent(id)}`);
   }
