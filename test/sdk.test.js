@@ -28,10 +28,35 @@ test('every method calls its endpoint', async () => {
   await c.coverage();
   await c.currencies({ cursor: 'abc' });
   await c.job('job/1');
+  await c.series('usd', { freq: 'monthly' });
+  await c.metals('xau', { year: 1900 });
+  await c.metals('XAG');
+  await c.sandboxConvert({ from: 'GBP' });
   assert.deepEqual(
     calls.map((x) => x.url.pathname + x.url.search),
-    ['/v1/inflate?amount=5&currency=TRY&fromYear=1990', '/v1/coverage', '/v1/currencies?limit=20&cursor=abc', '/v1/jobs/job%2F1'],
+    [
+      '/v1/inflate?amount=5&currency=TRY&fromYear=1990',
+      '/v1/coverage',
+      '/v1/currencies?limit=20&cursor=abc',
+      '/v1/jobs/job%2F1',
+      '/v1/series/USD?freq=monthly',
+      '/v1/metals/XAU?year=1900',
+      '/v1/metals/XAG',
+      '/v1/sandbox/convert?from=GBP',
+    ],
   );
+});
+
+test('months and method reach the query', async () => {
+  const { fetch, calls } = scriptedFetch(json({}));
+  const c = new ValueThen({ fetch });
+  await c.convert({ amount: 100, from: 'USD', to: 'EUR', fromYear: 2000, fromMonth: 3, toYear: 2025, toMonth: 6, method: 'cpi' });
+  await c.inflate({ currency: 'USD', fromYear: 1990, fromMonth: 1, toYear: 2020, toMonth: 12 });
+  assert.equal(
+    calls[0].url.search,
+    '?amount=100&from=USD&to=EUR&fromYear=2000&toYear=2025&fromMonth=3&toMonth=6&method=cpi',
+  );
+  assert.equal(calls[1].url.search, '?amount=1&currency=USD&fromYear=1990&toYear=2020&fromMonth=1&toMonth=12');
 });
 
 test('POSTs send JSON and the idempotency key', async () => {

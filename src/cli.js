@@ -8,11 +8,17 @@ export const HELP = `valuethen — what money from an earlier year is worth toda
 Usage
   valuethen convert <amount> <from> <fromYear> [to] [toYear]   Convert across years and currencies
   valuethen inflate <amount> <currency> <fromYear> [toYear]    Same-currency inflation adjustment
-  valuethen series <currency>                                  Full annual price index series
+  valuethen series <currency>                                  Full price index series
+  valuethen metals <XAU|XAG> [year]                            Gold or silver price per troy ounce
   valuethen coverage                                           Every currency and its data range
+
+A year can carry a month, such as 1990-03, for monthly price indices. Give a month
+for both years or for neither.
 
 Options
   --json           Print the raw API response
+  --method NAME    convert: cpi-then-fx (default), fx-then-cpi or cpi
+  --monthly        series: the monthly index instead of the annual one
   --api-key KEY    Send an API key for higher rate limits (or set VALUETHEN_API_KEY)
   --base URL       Point at another API base (default ${DEFAULT_BASE_URL})
   --timeout SECS   Give up after this many seconds (default 30)
@@ -24,7 +30,9 @@ Options can go anywhere: before, between or after the arguments.
 Examples
   valuethen convert 100 USD 1970
   valuethen convert 100 USD 1970 EUR 2026
+  valuethen convert 100 USD 1990-03 USD 2025-06
   valuethen inflate 1000 TRY 1990 --json
+  valuethen metals XAU 1900
   valuethen coverage | head
 
 Exit codes: 0 success, 1 the request failed, 2 the command was not valid.
@@ -37,8 +45,12 @@ const USAGE = {
   convert: 'valuethen convert <amount> <from> <fromYear> [to] [toYear]',
   inflate: 'valuethen inflate <amount> <currency> <fromYear> [toYear]',
   series: 'valuethen series <currency>',
+  metals: 'valuethen metals <XAU|XAG> [year]',
   coverage: 'valuethen coverage',
 };
+
+/** Values `--method` accepts; `test/contract/openapi.js` checks them against the API. */
+export const METHODS = ['cpi-then-fx', 'fx-then-cpi', 'cpi'];
 
 /** A mistake in the command itself: reported with usage, exit code 2. */
 class UsageError extends Error {}
@@ -66,6 +78,33 @@ function yearArg(value, name = 'Year') {
   return n;
 }
 
+/** A year, or a year and month written `YYYY-MM`. */
+function periodArg(value, name) {
+  const [, year, month] = /^(\d{1,4})-(\d{1,2})$/.exec(value ?? '') ?? [];
+  if (year === undefined) return { year: yearArg(value, name) };
+  if (Number(year) < 1 || Number(month) < 1 || Number(month) > 12) {
+    throw new UsageError(`${name} must be a year such as 1970 or a month such as 1970-06; got "${value}".`);
+  }
+  return { year: Number(year), month: Number(month) };
+}
+
+/** The API compares month with month or year with year, never one with the other. */
+function periodsArg(fromValue, toValue) {
+  const from = periodArg(fromValue, 'From year');
+  const to = toValue === undefined ? {} : periodArg(toValue, 'To year');
+  if ((from.month === undefined) !== (to.month === undefined)) {
+    throw new UsageError('Give a month for both years, such as 1990-03 and 2025-06, or for neither.');
+  }
+  return { fromYear: from.year, fromMonth: from.month, toYear: to.year, toMonth: to.month };
+}
+
+function metalArg(value) {
+  if (!/^(XAU|XAG)$/i.test(value ?? '')) {
+    throw new UsageError(`Metal must be XAU (gold) or XAG (silver); got "${value ?? ''}".`);
+  }
+  return value.toUpperCase();
+}
+
 function expectCount(command, args, min, max) {
   if (args.length < min || args.length > max) {
     throw new UsageError(`Usage: ${USAGE[command]}`);
@@ -75,6 +114,7 @@ function expectCount(command, args, min, max) {
 const money = (n, currency) =>
   new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(n);
 const pct = (n) => `${n >= 0 ? '+' : ''}${(n * 100).toFixed(1)}%`;
+const when = (year, month) => (month ? `${year}-${String(month).padStart(2, '0')}` : `${year}`);
 
 /**
  * Runs the CLI and resolves to its exit code. Everything it touches is injectable, so it can be
@@ -99,6 +139,8 @@ export async function run(argv, io = {}) {
       strict: true,
       options: {
         json: { type: 'boolean' },
+        method: { type: 'string' },
+        monthly: { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
         'api-key': { type: 'string' },
@@ -135,6 +177,13 @@ export async function run(argv, io = {}) {
       }
       timeout = seconds * 1000;
     }
+    if (values.method !== undefined) {
+      if (command !== 'convert') throw new UsageError('--method only applies to convert.');
+      if (!METHODS.includes(values.method)) {
+        throw new UsageError(`--method must be one of ${METHODS.join(', ')}; got "${values.method}".`);
+      }
+    }
+    if (values.monthly && command !== 'series') throw new UsageError('--monthly only applies to series.');
 
     const client = new ValueThen({
       apiKey: values['api-key'] ?? (env.VALUETHEN_API_KEY || undefined),
@@ -152,9 +201,9 @@ export async function run(argv, io = {}) {
         data = await client.convert({
           amount: amountArg(amount),
           from: currencyArg(from),
-          fromYear: yearArg(fromYear, 'From year'),
           to: to === undefined ? undefined : currencyArg(to, 'Target currency'),
-          toYear: toYear === undefined ? undefined : yearArg(toYear, 'To year'),
+          ...periodsArg(fromYear, toYear),
+          method: values.method,
         });
       } else {
         expectCount(command, args, 3, 4);
@@ -162,8 +211,7 @@ export async function run(argv, io = {}) {
         data = await client.inflate({
           amount: amountArg(amount),
           currency: currencyArg(currency),
-          fromYear: yearArg(fromYear, 'From year'),
-          toYear: toYear === undefined ? undefined : yearArg(toYear, 'To year'),
+          ...periodsArg(fromYear, toYear),
         });
       }
       if (values.json) {
@@ -171,9 +219,21 @@ export async function run(argv, io = {}) {
         return 0;
       }
       const i = data.inputs;
+      // `cpi` across currencies compares each one's price change without exchanging money, so the
+      // result stays in the starting currency and both changes matter.
+      const compared = data.method === 'cpi' && i.from !== i.to;
       const change = data.inflation?.[i.from]?.cumulative ?? data.inflation?.cumulative;
-      out(`${money(i.amount, i.from)} in ${i.fromYear}  =  ${money(data.result, i.to)} in ${i.toYear}`);
-      if (typeof change === 'number') out(`Price change: ${pct(change)}`);
+      const target = compared ? i.from : i.to;
+      out(
+        `${money(i.amount, i.from)} in ${when(i.fromYear, i.fromMonth)}  =  ` +
+          `${money(data.result, target)} in ${when(i.toYear, i.toMonth)}`,
+      );
+      const toChange = data.inflation?.[i.to]?.cumulative;
+      if (compared && typeof change === 'number' && typeof toChange === 'number') {
+        out(`Price change: ${i.from} ${pct(change)}, ${i.to} ${pct(toChange)}`);
+      } else if (typeof change === 'number') {
+        out(`Price change: ${pct(change)}`);
+      }
       if (data.fx?.atToYear) out(`Rate used: 1 ${i.from} = ${data.fx.atToYear.rate} ${i.to} (${data.fx.atToYear.actualDate})`);
       if (data.note) out(`Note: ${data.note}`);
       out(`Sources: ${(data.sources ?? []).join('; ')}`);
@@ -183,13 +243,38 @@ export async function run(argv, io = {}) {
 
     if (command === 'series') {
       expectCount(command, args, 1, 1);
-      const data = await client.series(currencyArg(args[0]));
+      const data = await client.series(currencyArg(args[0]), { freq: values.monthly ? 'monthly' : undefined });
       if (values.json) {
         print(data);
         return 0;
       }
+      const labels = values.monthly ? (data.periods ?? []) : data.years;
+      if (values.monthly && labels.length === 0) {
+        err(`${data.currency} has no monthly price index. Run without --monthly for the annual one.`);
+        return 1;
+      }
       out(`${data.currency} — ${data.source}`);
-      for (let y = 0; y < data.years.length; y += 1) out(`${data.years[y]}\t${data.values[y]}`);
+      for (let y = 0; y < labels.length; y += 1) out(`${labels[y]}\t${data.values[y]}`);
+      return 0;
+    }
+
+    if (command === 'metals') {
+      expectCount(command, args, 1, 2);
+      const [metal, year] = args;
+      const data = await client.metals(metalArg(metal), { year: year === undefined ? undefined : yearArg(year) });
+      if (values.json) {
+        print(data);
+        return 0;
+      }
+      if (!data.quote) {
+        out(`${data.metal} — ${data.source}`);
+        for (const r of data.records ?? []) out(`${r.date}\t${r.price}\t${r.currency}`);
+        return 0;
+      }
+      const q = data.quote;
+      out(`1 troy ounce of ${data.metal} in ${year}  =  ${money(q.price, q.currency)} (observed ${q.date})`);
+      if (data.note) out(`Note: ${data.note}`);
+      out(`Source: ${q.source ?? data.source}`);
       return 0;
     }
 
@@ -200,7 +285,10 @@ export async function run(argv, io = {}) {
         print(data);
         return 0;
       }
-      for (const c of data.currencies) out(`${c.currency}\t${c.cpiFrom ?? '?'}–${c.cpiTo ?? '?'}\t${c.name}`);
+      for (const c of data.currencies) {
+        const monthly = c.monthlyFrom ? `\tmonthly ${c.monthlyFrom}–${c.monthlyTo ?? '?'}` : '';
+        out(`${c.currency}\t${c.cpiFrom ?? '?'}–${c.cpiTo ?? '?'}\t${c.name}${monthly}`);
+      }
       return 0;
     }
 

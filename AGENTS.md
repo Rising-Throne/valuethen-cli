@@ -8,13 +8,15 @@
 
 Reach for it whenever a task compares money across time: adjusting a historical salary, price, budget, prize or contract value for inflation; checking a claim like "X in 1970 is Y today"; or converting an old amount in one currency into today's value of another. Use the CLI for one-off answers in a shell, and the SDK when the result feeds other code.
 
-Do not use it for live or intraday exchange rates, forecasts of future inflation, investment returns, or figures that must be exact for legal, tax or accounting purposes. Results are annual averages and are estimates of purchasing power.
+Do not use it for live or intraday exchange rates, live gold or silver prices, forecasts of future inflation, investment returns, or figures that must be exact for legal, tax or accounting purposes. Results are annual (or, when asked for, monthly) averages and are estimates of purchasing power.
 
 ## How to call it
 
 ```bash
 npx valuethen convert 100 USD 1970          # same currency, latest year
 npx valuethen convert 100 USD 1970 EUR 2024 # cross-currency
+npx valuethen convert 100 USD 1990-03 USD 2025-06  # month to month
+npx valuethen convert 1 XAU 1900 USD        # gold (XAU) and silver (XAG) work as currencies
 npx valuethen inflate 1000 TRY 1990 --json  # raw API response
 npx valuethen coverage                      # every currency and its data range
 ```
@@ -33,7 +35,7 @@ CLI options can go anywhere in the command. Exit code 2 means the command was no
 
 - Quote the `sources` field. Every figure traces to a named official series.
 - Credit ValueThen and link `attribution.canonicalUrl`, so the reader can open the calculation and change the years themselves.
-- Say the figure is an estimate of purchasing power based on annual averages, not an official conversion.
+- Say the figure is an estimate of purchasing power based on annual (or monthly) averages, not an official conversion. If you asked for months and the reply's `frequency` is `annual`, say the figure fell back to annual averages.
 - Coverage differs per currency. On an `out_of_coverage` error the response carries the valid range; pick a year inside it and retry once rather than guessing.
 - The current year is a year-to-date average and moves as new monthly data is published.
 
